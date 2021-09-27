@@ -73,7 +73,7 @@ First we define 4 colors that work well together to represent the 4 values;
 then, we make a palette for plotting.
 """
 
-# ╔═╡ 8f72fd84-0b1a-4f57-83db-406d50305ce0
+# ╔═╡ 5b4181f9-4230-4152-9ef0-ada8cb2df3f8
 plot_colors= ColorScheme([colorant"#015c63", colorant"#44b2a8", colorant"#cfeeed", colorant"#fee9c6"]);
 
 # ╔═╡ ee1e408d-e52d-468e-84b1-5fa882517f6d
@@ -123,12 +123,17 @@ begin
 		nRows= length(rows)
 		annotate!(Iterators.zip((xlim - 8).*ones(nRows), rows, num_annot.(repeat(["→"],nRows)))|>collect)
 	end
-	annotateNumbers!(data,xlim)= begin
+	annotateNumbers!(data,xlim,vline_x)= begin
 		overhangRows= findall(data .> xlim)
 		numRows= findall(data .<= xlim)
-		annotate!(Iterators.zip(data[numRows].+6, numRows, num_annot.(data))|>collect)
+    annotate!(Iterators.zip(data[numRows].+6, numRows, num_annot.(data[numRows]))|>collect)
 		# Too long rows
 		annotateOverhang!(data, xlim, overhangRows)
+    vline!(vline_x,
+           linecolor=:grey, linestyle=:dash, linewidth=2,
+           labels=:none,
+    )
+    annotate!(vline_x, [0,0], [text("1/6 AR", :top, 16), text("1/3 AR", :top, 16)])
 	end
 	tmpdir= Filesystem.mktempdir()
 	combinedFilepath= joinpath(tmpdir,"combined_plot.png")
@@ -139,25 +144,27 @@ end
 
 # ╔═╡ 7a5fdcb5-e535-40cf-8a81-1fb118196cf0
 begin
-	xlim= 200
+	xlim= 700
+  vline_x= [213, 426]
 	plot_left= bar((1:nrows)', data_sortg[!,orderby]',
 		yticks= (1:nrows, data_sortg[:,names_col]),
 		xlabel= orderby,
-		labelfontsize= 14, tickfontsize= 12,
+		labelfontsize= 12, tickfontsize= 12,
 		xlim= (0,xlim), ylim= (.5, nrows+.5),
 		orientation=:h, yflip= true,
 		color= [palette[i] for i in colormap.(data_sortg[!,color_col])]',
 		linewidth=0, markersize=5,
 		labels=:none, background_color= :transparent, foreground_color= :black,
-		dpi=192, size=[1100,1300],
+		dpi=320, size=[1400,1200],
 	)
-	annotateNumbers!(data_sortg[!,orderby], xlim)
+	annotateNumbers!(data_sortg[!,orderby], xlim, vline_x)
 	md"This cell creates the left plot"
 end
 
 # ╔═╡ 3e5b4781-89b1-4a3e-a0a5-704cd76babda
 begin
-	xlim2= 250
+	xlim2= 700
+  vline_x2= [277, 553]
 	plot_right= bar((1:nrows)', data_sortg[!,plotcol2]',
 		yticks= :none, xlabel= plotcol2,
 		tickfontsize= 12, labelfontsize= 14,
@@ -166,34 +173,35 @@ begin
 		color= [palette[i] for i in colormap.(data_sortg[!,color_col])]',
 		linewidth=0, markersize=5,
 		labels=:none, background_color= :transparent, foreground_color= :black,
-		dpi=192, size=[1100,1300],
+		dpi=320, size=[1400,1200],
 	)
-	annotateNumbers!(data_sortg[!,plotcol2], xlim2)
+	annotateNumbers!(data_sortg[!,plotcol2], xlim2, vline_x2)
 	md"This cell creates the right plot"
 end
 
 # ╔═╡ 530c9bee-7db6-45e0-af9c-5b85fb26d749
-let annotRows= 11:20:90
+begin
+  annotRows= 11:20:90
 	levelAnnot(x)= text(x, :left,10)
 	nutrientDensityLegend = scatter(
 		ones(4)'.+10, annotRows',
 		color=[palette[i] for i in data_sortg[!,color_col]|>unique.|>colormap|>sort]',
 		markerstrokewidth=0, markersize=7, markershape= :rect,
-		xlim = (0, 100), ylim = (0, 90), yflip= false,
+		xlim = (0, 100), ylim = (0, 90), yflip= true,
 		framestyle = :none, background_color= :transparent, foreground_color= :black,
-		size = (220, 220), dpi=192,
+		size = (220, 220), dpi=320,
 		legend = false,
 		title= "Nutrient density",
 	)
-	annotate!(Iterators.zip(ones(4) .+ 30, annotRows, levelAnnot.(["Low", "Moderate", "High", "Very high"]))|>collect)
-	savefig(nutrientDensityLegend, legendFilepath)
+	annotate!(Iterators.zip(ones(4) .+ 30, annotRows, levelAnnot.(["Very high", "High", "Moderate", "Low"]))|>collect)
+	saveLegend= savefig(nutrientDensityLegend, legendFilepath)
 	md"This cell creates the legend and stores it as an image file."
 end
 
 # ╔═╡ 4d7d2fe5-c3f8-4c5f-8fd5-8091f38a8c80
-let
-	combined_plot= plot(plot_left,plot_right, size= [1400,1400])
-	savefig(combined_plot, combinedFilepath)
+begin
+	combined_plot= plot(plot_left,plot_right, size= [1600,1250])
+	saveCombo= savefig(combined_plot, combinedFilepath)
 	md"This cell combines the 2 plots and stores them as an image file."
 end
 
@@ -203,7 +211,8 @@ md"Now we need to overlay the legend on the combined plot. This is the final plo
 # ╔═╡ 3b01da85-8f1e-44ab-b63b-1d2d0c001d1b
 begin
 	# Reference: https://juliaimages.org/latest/examples/spatial_transformation/layer_compositing/#Layer-Compositing
-	legendPosition= (80,1250)
+  saveLegend, saveCombo; # reference for Pluto to refresh
+	legendPosition= (150,2200)
 	plotImg= combinedFilepath|> FileIO.load
 	legendImg= OffsetArray(FileIO.load(legendFilepath), legendPosition...)
 	font, patch= paddedviews(zero(eltype(plotImg)), plotImg, legendImg)
@@ -215,7 +224,7 @@ begin
 	#overlaidPlot = copy(font)
 	#overlaidPlot[axes(legendImg)...] .= legendImg
 
-	FileIO.save(overlaidFilepath, overlaidPlot)
+	saveFinal= FileIO.save(overlaidFilepath, overlaidPlot)
 	overlaidPlot
 end
 
@@ -223,13 +232,18 @@ end
 md"Click this button to download the code"
 
 # ╔═╡ c7c29b7e-75ee-49f0-8d78-0e93ad3555a0
-DownloadButton(read(overlaidFilepath), basename(overlaidFilepath))
+begin
+  saveFinal; # reference for Pluto to refresh
+  DownloadButton(read(overlaidFilepath), basename(overlaidFilepath))
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
@@ -242,6 +256,8 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 [compat]
 CategoricalArrays = "~0.10.0"
 Chain = "~0.4.8"
+ColorSchemes = "~3.15.0"
+Colors = "~0.12.8"
 DataFrames = "~1.2.2"
 FileIO = "~1.11.1"
 Images = "~0.24.1"
@@ -337,9 +353,9 @@ version = "1.4.0"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
-git-tree-sha1 = "9995eb3977fbf67b86d0a0a0508e83017ded03f2"
+git-tree-sha1 = "a851fec56cb73cfdf43762999ec72eff5b86882a"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.14.0"
+version = "3.15.0"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -1552,19 +1568,20 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─fd34131a-1fe4-4258-b2e9-3250bc68a55a
+# ╠═fd34131a-1fe4-4258-b2e9-3250bc68a55a
 # ╟─6d82b894-1961-11ec-1805-210a4e8f669f
 # ╟─b42cb987-a26d-4b17-b419-d8eb71d1a519
 # ╟─1146db77-8904-4509-9692-b1177b52fe2a
 # ╟─c14c17d4-8f0a-44ea-84c7-e7384f6cf84a
 # ╟─03b698c0-9309-4fd5-a1b0-16c2aeda5630
 # ╟─7913ff7b-be69-4524-b738-a08839c4b3f8
+# ╠═5b4181f9-4230-4152-9ef0-ada8cb2df3f8
 # ╟─ee1e408d-e52d-468e-84b1-5fa882517f6d
 # ╟─768042db-93f6-4c78-bcf5-603ae9d3636a
 # ╟─79d5226a-f55b-45b4-aeac-38f905a6080c
 # ╟─64534e58-c86e-4bac-9bab-8375cc19f429
 # ╟─58c6ae9b-07f7-4e3d-b796-96668ad01942
-# ╟─827f7806-0496-4b91-aca5-40e440106d2b
+# ╠═827f7806-0496-4b91-aca5-40e440106d2b
 # ╠═7a5fdcb5-e535-40cf-8a81-1fb118196cf0
 # ╠═3e5b4781-89b1-4a3e-a0a5-704cd76babda
 # ╠═530c9bee-7db6-45e0-af9c-5b85fb26d749
